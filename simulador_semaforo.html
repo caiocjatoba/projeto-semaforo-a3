@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador – Semáforo Inteligente (CLP / Ladder)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0D1B2A; --blue: #1B4F72; --lightblue: #2E86C1;
+    --ice: #D6EAF8; --white: #FFFFFF; --green: #166534;
+    --green-bg: #dcfce7; --yellow: #713f12; --yellow-bg: #fef9c3;
+    --red: #991b1b; --gray: #4B5563; --light: #F3F4F6;
+    --border: #E5E7EB; --text: #111827; --muted: #6B7280;
+  }
+  body {
+    background: #F0F4F8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .wrap {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.10);
+    padding: 2rem;
+    width: 100%;
+    max-width: 780px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+    border-bottom: 1.5px solid var(--border);
+    padding-bottom: 1rem;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; color: var(--navy); }
+  .header p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .badge {
+    font-size: 12px; padding: 4px 12px; border-radius: 20px;
+    font-weight: 600; margin-left: auto; flex-shrink: 0;
+  }
+  .badge-on { background: #dcfce7; color: #166534; }
+  .badge-off { background: var(--light); color: var(--muted); }
+
+  .phase-banner {
+    text-align: center; font-size: 15px; font-weight: 600;
+    padding: 10px 16px; border-radius: 10px; margin-bottom: 1.25rem;
+    transition: background 0.3s, color 0.3s;
+    background: var(--light); color: var(--muted);
+  }
+
+  .grid-top { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .card {
+    background: #fff; border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 1rem;
+  }
+  .card-label {
+    font-size: 11px; color: var(--muted); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px;
+  }
+  .lights-row { display: flex; gap: 20px; justify-content: center; }
+  .light-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .housing {
+    background: #111; border-radius: 12px; padding: 10px 13px;
+    display: flex; flex-direction: column; gap: 8px;
+    border: 2px solid #333;
+  }
+  .light {
+    width: 42px; height: 42px; border-radius: 50%;
+    transition: background 0.25s, box-shadow 0.25s;
+    background: #1e1e1e;
+  }
+  .red-on   { background: #FF3B3B; box-shadow: 0 0 14px 4px #FF3B3B66; }
+  .yel-on   { background: #FFD600; box-shadow: 0 0 14px 4px #FFD60066; }
+  .grn-on   { background: #22C55E; box-shadow: 0 0 14px 4px #22C55E66; }
+  .via-lbl  { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; line-height: 1.4; }
+  .via-tag  { font-size: 10px; color: #aaa; }
+
+  .ped-housing {
+    background: #111; border-radius: 10px; padding: 8px 12px;
+    display: flex; gap: 10px; border: 2px solid #333;
+  }
+  .ped-light {
+    width: 34px; height: 34px; border-radius: 50%;
+    transition: background 0.25s, box-shadow 0.25s;
+    background: #1e1e1e;
+  }
+  .ped-center { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .ped-flag {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    background: var(--light); padding: 4px 10px; border-radius: 20px;
+  }
+  .ped-flag.active { background: #dbeafe; color: #1e40af; }
+
+  .timer-wrap { margin-top: 10px; }
+  .timer-lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .timer-track { background: var(--light); border-radius: 4px; height: 8px; overflow: hidden; }
+  .timer-fill { height: 100%; border-radius: 4px; transition: width 0.25s linear; background: #2E86C1; }
+
+  .controls {
+    background: #F8FAFC; border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 1rem; margin-bottom: 14px;
+  }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    cursor: pointer; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 9px 18px; font-size: 13px; font-weight: 600; background: #fff;
+    color: var(--text); transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  button:hover { background: var(--light); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  button:active { transform: scale(0.97); }
+  .btn-start { border-color: #16a34a; color: #15803d; }
+  .btn-stop  { border-color: #dc2626; color: #b91c1c; }
+  .btn-ped   { border-color: #2563eb; color: #1d4ed8; }
+
+  .section { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .ladder-card {
+    background: #0D1B2A; border-radius: 12px; padding: 1rem;
+  }
+  .ladder-title { font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .rung {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 3px;
+    font-family: 'Courier New', monospace; font-size: 11.5px;
+    padding: 5px 0; border-bottom: 0.5px solid #1e2d3d;
+  }
+  .rung:last-child { border-bottom: none; }
+  .rung-n { font-size: 10px; color: #475569; width: 16px; flex-shrink: 0; }
+  .ct { padding: 2px 5px; border-radius: 4px; transition: background 0.2s, color 0.2s; }
+  .cl { padding: 2px 5px; border-radius: 4px; transition: background 0.2s, color 0.2s; }
+  .ct.on { background: #166534; color: #86efac; }
+  .cl.on { background: #1e3a5f; color: #93c5fd; }
+  .ct.off, .cl.off { color: #475569; background: #1a2a3a; }
+  .wire { color: #334155; }
+  .rung-hint { font-size: 10px; color: #334155; margin-left: 4px; }
+
+  .tags-card {
+    background: #fff; border: 1.5px solid var(--border); border-radius: 12px; padding: 1rem;
+  }
+  .tags-title { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tags-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+  .tag-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 3px 0; border-bottom: 0.5px solid #f1f5f9; }
+  .tag-lbl { color: var(--muted); font-family: monospace; }
+  .tag-val { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+  .tv { background: #dcfce7; color: #166534; }
+  .tf { background: var(--light); color: #9ca3af; }
+
+  .footer {
+    margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--muted); text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <h1>🚦 Semáforo Inteligente — Simulador CLP / Ladder</h1>
+      <p>Sistemas Automatizados · Prof. Robson Calvetti · USJT 2026/1 · PLC Fiddle</p>
+    </div>
+    <span class="badge badge-off" id="sys-badge">Desligado</span>
+  </div>
+
+  <div class="phase-banner" id="phase-banner">Sistema desligado — pressione Partida para iniciar</div>
+
+  <div class="grid-top">
+    <div class="card">
+      <div class="card-label">Semáforos Veiculares</div>
+      <div class="lights-row">
+        <div class="light-col">
+          <div class="housing">
+            <div class="light" id="a-red"></div>
+            <div class="light" id="a-yel"></div>
+            <div class="light" id="a-grn"></div>
+          </div>
+          <div class="via-lbl">Via A<br><span class="via-tag">Q0.0–Q0.2</span></div>
+        </div>
+        <div class="light-col">
+          <div class="housing">
+            <div class="light" id="b-red"></div>
+            <div class="light" id="b-yel"></div>
+            <div class="light" id="b-grn"></div>
+          </div>
+          <div class="via-lbl">Via B<br><span class="via-tag">Q0.3–Q0.5</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Semáforo de Pedestre</div>
+      <div class="ped-center">
+        <div class="ped-housing">
+          <div class="ped-light" id="p-red"></div>
+          <div class="ped-light" id="p-grn"></div>
+        </div>
+        <div class="via-lbl">Pedestre &nbsp;<span class="via-tag">Q0.6–Q0.7</span></div>
+        <div class="ped-flag" id="ped-flag">Sem solicitação</div>
+      </div>
+      <div class="timer-wrap" id="timer-wrap" style="display:none">
+        <div class="timer-lbl" id="timer-lbl">—</div>
+        <div class="timer-track"><div class="timer-fill" id="timer-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="card-label" style="margin-bottom:8px">Entradas — Botões do CLP</div>
+    <div class="btn-row">
+      <button class="btn-start" onclick="pressStart()">▶ I0.0 — Partida</button>
+      <button class="btn-stop"  onclick="pressStop()">■ I0.1 — Emergência</button>
+      <button class="btn-ped"   onclick="pressPed()">🚶 I0.2 — Pedestre</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="ladder-card">
+      <div class="ladder-title">Rungs Ladder</div>
+      <div class="rung">
+        <span class="rung-n">1</span>
+        <span class="ct off" id="r1-i00">[I0.0]</span><span class="wire">─</span>
+        <span class="ct off" id="r1-i01">[/I0.1]</span><span class="wire">─</span>
+        <span class="ct off" id="r1-m00">[/M0.0]</span><span class="wire">─</span>
+        <span class="cl off" id="r1-out">(M0.0)</span>
+        <span class="rung-hint">partida/self-hold</span>
+      </div>
+      <div class="rung">
+        <span class="rung-n">2</span>
+        <span class="ct off" id="r2-m00">[M0.0]</span><span class="wire">─</span>
+        <span class="ct off" id="r2-m01">[M0.1]</span><span class="wire">─</span>
+        <span style="color:#334155;font-size:11px">TON T0 30s</span><span class="wire">─</span>
+        <span class="cl off" id="r2-t0">(T0.Q)</span>
+      </div>
+      <div class="rung">
+        <span class="rung-n">3</span>
+        <span class="ct off" id="r3-t0">[T0.Q]</span><span class="wire">──────</span>
+        <span style="color:#334155;font-size:11px">TON T1 3s</span><span class="wire">─</span>
+        <span class="cl off" id="r3-t1">(T1.Q)</span>
+      </div>
+      <div class="rung">
+        <span class="rung-n">4</span>
+        <span class="ct off" id="r4-t1">[T1.Q]</span><span class="wire">─</span>
+        <span class="ct off" id="r4-m03">[/M0.3]</span><span class="wire">──</span>
+        <span class="cl off" id="r4-m02">(M0.2)</span>
+        <span class="rung-hint">fase B</span>
+      </div>
+      <div class="rung">
+        <span class="rung-n">5</span>
+        <span class="ct off" id="r5-t1q">[T1.Q]</span><span class="wire">─</span>
+        <span class="ct off" id="r5-m03">[M0.3]</span><span class="wire">──</span>
+        <span class="cl off" id="r5-out">(M0.4)</span>
+        <span class="rung-hint">fase ped.</span>
+      </div>
+    </div>
+
+    <div class="tags-card">
+      <div class="tags-title">Mapa de Memória / Tags</div>
+      <div class="tags-grid" id="tags-grid"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    USJT – Engenharia de Software &nbsp;|&nbsp; Sistemas Automatizados &nbsp;|&nbsp; Prof. Robson Calvetti &nbsp;|&nbsp; 2026/1
+  </div>
+</div>
+
+<script>
+const PT = { A_GRN:10, A_YEL:3, B_GRN:10, B_YEL:3, PED:6 };
+const PN = {
+  idle:'Sistema desligado — pressione Partida para iniciar',
+  A_GRN:'Fase A – Verde  |  Via A LIVRE  ·  Via B FECHADA',
+  A_YEL:'Fase A – Amarelo  |  Atenção, Via A encerrando',
+  B_GRN:'Fase B – Verde  |  Via B LIVRE  ·  Via A FECHADA',
+  B_YEL:'Fase B – Amarelo  |  Atenção, Via B encerrando',
+  PED:'Fase Pedestre – Travessia LIBERADA  |  Ambas as vias FECHADAS'
+};
+const PC = {
+  idle:['#F3F4F6','#6B7280'],
+  A_GRN:['#166534','#dcfce7'], A_YEL:['#92400e','#fef3c7'],
+  B_GRN:['#166534','#dcfce7'], B_YEL:['#92400e','#fef3c7'],
+  PED:['#1e3a5f','#dbeafe']
+};
+const TAGS = ['M0.0','M0.1','M0.2','M0.3','M0.4','Q0.0','Q0.1','Q0.2','Q0.3','Q0.4','Q0.5','Q0.6','Q0.7','T0.Q','T1.Q'];
+let S = { on:false, phase:'idle', timer:0, pedReq:false, tick:null };
+
+function initTags() {
+  const g = document.getElementById('tags-grid');
+  TAGS.forEach(t => {
+    g.innerHTML += `<div class="tag-item"><span class="tag-lbl">${t}</span><span class="tag-val tf" id="tag-${t.replace('.','_')}">FALSE</span></div>`;
+  });
+}
+
+function setTag(t, v) {
+  const el = document.getElementById('tag-'+t.replace('.','_'));
+  if (!el) return;
+  el.textContent = v ? 'TRUE' : 'FALSE';
+  el.className = 'tag-val ' + (v ? 'tv' : 'tf');
+}
+
+function setL(id, cls) { const e=document.getElementById(id); if(e) e.className='light '+(cls||''); }
+function setPL(id, cls) { const e=document.getElementById(id); if(e) e.className='ped-light '+(cls||''); }
+function setCt(id, on) { const e=document.getElementById(id); if(e){ e.className='ct '+(on?'on':'off'); } }
+function setCl(id, on) { const e=document.getElementById(id); if(e){ e.className='cl '+(on?'on':'off'); } }
+
+function render() {
+  const p = S.phase, on = S.on;
+  const aG=on&&p==='A_GRN', aY=on&&p==='A_YEL';
+  const bG=on&&p==='B_GRN', bY=on&&p==='B_YEL';
+  const ped=on&&p==='PED';
+  const aR=on&&!aG&&!aY, bR=on&&!bG&&!bY;
+  const pG=ped, pR=on&&!ped;
+  const t0q=on&&p!=='A_GRN'&&p!=='idle', t1q=on&&(p==='B_GRN'||p==='B_YEL'||p==='PED');
+
+  setL('a-grn', aG?'grn-on':''); setL('a-yel', aY?'yel-on':''); setL('a-red', aR?'red-on':'');
+  setL('b-grn', bG?'grn-on':''); setL('b-yel', bY?'yel-on':''); setL('b-red', bR?'red-on':'');
+  setPL('p-grn', pG?'grn-on':''); setPL('p-red', pR?'red-on':'');
+
+  setTag('M0.0',on); setTag('M0.1',aG||aY); setTag('M0.2',bG||bY);
+  setTag('M0.3',S.pedReq); setTag('M0.4',ped);
+  setTag('Q0.0',aG); setTag('Q0.1',aY); setTag('Q0.2',aR);
+  setTag('Q0.3',bG); setTag('Q0.4',bY); setTag('Q0.5',bR);
+  setTag('Q0.6',pG); setTag('Q0.7',pR); setTag('T0.Q',t0q); setTag('T1.Q',t1q);
+
+  const banner = document.getElementById('phase-banner');
+  const [bg,fg] = PC[p]||PC.idle;
+  banner.style.background=bg; banner.style.color=fg; banner.textContent=PN[p]||'—';
+
+  const badge = document.getElementById('sys-badge');
+  badge.textContent = on?'Em operação':'Desligado';
+  badge.className = 'badge '+(on?'badge-on':'badge-off');
+
+  const pf = document.getElementById('ped-flag');
+  pf.textContent = S.pedReq?'⚑ Pedestre solicitado (M0.3=ON)':'Sem solicitação';
+  pf.className = 'ped-flag'+(S.pedReq?' active':'');
+
+  setCt('r1-i00',false); setCt('r1-i01',on); setCt('r1-m00',!on); setCl('r1-out',on);
+  setCt('r2-m00',on); setCt('r2-m01',aG||aY); setCl('r2-t0',t0q);
+  setCt('r3-t0',t0q); setCl('r3-t1',t1q);
+  setCt('r4-t1',t1q); setCt('r4-m03',!S.pedReq); setCl('r4-m02',bG||bY);
+  setCt('r5-t1q',t1q); setCt('r5-m03',S.pedReq); setCl('r5-out',ped);
+
+  const tw=document.getElementById('timer-wrap');
+  if (on && p!=='idle') {
+    tw.style.display='block';
+    const total=PT[p]||1;
+    document.getElementById('timer-fill').style.width=Math.min(100,(S.timer/total)*100).toFixed(0)+'%';
+    document.getElementById('timer-lbl').textContent=`Timer: ${S.timer.toFixed(0)}s / ${total}s`;
+  } else { tw.style.display='none'; }
+}
+
+function nextPhase() {
+  const p=S.phase;
+  if(p==='A_GRN') S.phase='A_YEL';
+  else if(p==='A_YEL') S.phase='B_GRN';
+  else if(p==='B_GRN') S.phase='B_YEL';
+  else if(p==='B_YEL') S.phase=S.pedReq?'PED':'A_GRN';
+  else if(p==='PED') { S.pedReq=false; S.phase='A_GRN'; }
+  S.timer=0;
+}
+
+function pressStart() {
+  if(S.on) return;
+  S.on=true; S.phase='A_GRN'; S.timer=0; render();
+  S.tick=setInterval(()=>{ if(!S.on){clearInterval(S.tick);return;} S.timer+=0.25; if(S.timer>=PT[S.phase]) nextPhase(); render(); },250);
+}
+function pressStop() {
+  S.on=false; S.phase='idle'; S.timer=0; S.pedReq=false;
+  if(S.tick) clearInterval(S.tick); render();
+}
+function pressPed() { if(!S.on) return; S.pedReq=true; render(); }
+
+initTags(); render();
+</script>
+</body>
+</html>
